@@ -110,7 +110,7 @@ run-dev: build-dev
 	cd .dev && docker-compose up --build --remove-orphans
 
 acceptance-test: build-dev
-	$(run-php) vendor/bin/codecept run Acceptance --steps
+	$(run-php) ./vendor/bin/codecept run Acceptance --steps
 
 acceptance-test-ci: build-dev
 	$(run-php) vendor/bin/codecept build
@@ -127,10 +127,10 @@ endif
 	$(run-php) vendor/bin/codecept run Acceptance --steps
 
 codesniffer:
-	./vendor/squizlabs/php_codesniffer/bin/phpcs app
+	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcs app
 
 codesniffer-fix:
-	./vendor/squizlabs/php_codesniffer/bin/phpcbf app
+	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcbf app
 
 get-version:
 	@echo $(VERSION)
