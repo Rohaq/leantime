@@ -9,6 +9,7 @@ run-tool := docker-compose -f .dev/docker-compose.tools.yaml run --rm
 run-composer := $(run-tool) composer
 run-npx := $(run-tool) npx
 run-npm := $(run-tool) npm
+run-php := $(run-tool) php
 
 install-deps-dev:
 	$(run-npm) install --only=dev
@@ -89,7 +90,7 @@ gendocs: # Requires github CLI (brew install gh)
 
 	# Generate the docs
 	phpDocumentor
-	php vendor/bin/leantime-documentor parse app --format=markdown --template=templates/markdown.php --output=builddocs/technical/hooks.md --memory-limit=-1
+	$(run-php) vendor/bin/leantime-documentor parse app --format=markdown --template=templates/markdown.php --output=builddocs/technical/hooks.md --memory-limit=-1
 
 	# create pull request
 	cd $(DOCS_DIR) && git switch -c "release/$(VERSION)"
@@ -109,10 +110,10 @@ run-dev: build-dev
 	cd .dev && docker-compose up --build --remove-orphans
 
 acceptance-test: build-dev
-	php vendor/bin/codecept run Acceptance --steps
+	$(run-php) vendor/bin/codecept run Acceptance --steps
 
 acceptance-test-ci: build-dev
-	php vendor/bin/codecept build
+	$(run-php) vendor/bin/codecept build
 ifeq ($(strip $(RUNNING_DOCKER_CONTAINERS)),)
 	@echo "No running docker containers found"
 else
@@ -123,7 +124,7 @@ ifeq ($(strip $(RUNNING_DOCKER_VOLUMES)),)
 else
 	docker volume rm $(RUNNING_DOCKER_VOLUMES)
 endif
-	php vendor/bin/codecept run Acceptance --steps
+	$(run-php) vendor/bin/codecept run Acceptance --steps
 
 codesniffer:
 	./vendor/squizlabs/php_codesniffer/bin/phpcs app

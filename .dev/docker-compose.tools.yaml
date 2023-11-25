@@ -12,12 +12,12 @@ services:
       COMPOSER_IGNORE_PLATFORM_REQS: 1
 
   php:
-    <<: *tool-service
     build: .
+    <<: *tool-service
     volumes:
+      - "${PWD}:/app"
       - "./xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
       - "./error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini"
-      - ".env:/var/www/html/config/.env"
 
   npm:
     <<: *tool-service
