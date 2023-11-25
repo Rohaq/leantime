@@ -5,19 +5,24 @@ DOCS_REPO:= git@github.com:Leantime/docs.git
 RUNNING_DOCKER_CONTAINERS:= $(shell docker ps -a -q)
 RUNNING_DOCKER_VOLUMES:= $(shell docker volume ls -q)
 
+run-tool := docker-compose -f .dev/docker-compose.tools.yaml run --rm
+run-composer := $(run-tool) composer
+run-npx := $(run-tool) npx
+run-npm := $(run-tool) npm
+
 install-deps-dev:
-	npm install --only=dev
-	composer install --optimize-autoloader
+	$(run-npm) install --only=dev
+	$(run-composer) install --optimize-autoloader
 
 install-deps:
-	npm install
-	composer install --no-dev --optimize-autoloader
+	$(run-npm) install
+	$(run-composer) install --no-dev --optimize-autoloader
 
 build: install-deps
-	npx mix --production
+	$(run-npx) mix --production
 
 build-dev: install-deps-dev
-	npx mix --production
+	$(run-npx) mix --production
 
 package: clean build
 	mkdir -p $(TARGET_DIR)
@@ -127,7 +132,7 @@ codesniffer-fix:
 	./vendor/squizlabs/php_codesniffer/bin/phpcbf app
 
 get-version:
-	@echo $(VERSION) 
+	@echo $(VERSION)
 
 .PHONY: install-deps build package clean run-dev
 

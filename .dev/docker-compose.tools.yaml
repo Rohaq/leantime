@@ -1,0 +1,30 @@
+x-tool-service: &tool-service
+  profiles: ["tools"]
+  working_dir: "/app"
+  volumes:
+    - "${PWD}:/app"
+
+services:
+  composer:
+    <<: *tool-service
+    image: composer
+    environment:
+      COMPOSER_IGNORE_PLATFORM_REQS: 1
+
+  php:
+    <<: *tool-service
+    build: .
+    volumes:
+      - "./xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
+      - "./error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini"
+      - ".env:/var/www/html/config/.env"
+
+  npm:
+    <<: *tool-service
+    image: node:lts-alpine
+    entrypoint: ["npm"]
+
+  npx:
+    <<: *tool-service
+    image: node:lts-alpine
+    entrypoint: ["npx"]
