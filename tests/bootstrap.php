@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use PDO;
+use Leantime\Core\Db as DbCore;
+
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
@@ -25,6 +28,12 @@ $bootstrapper = get_class(new class {
      * @var self
      */
     protected static $instance;
+
+    /**
+     * @var DbCore
+     * Instance of the database core class.
+     */
+    private DbCore $db;
 
     /**
      * @var Process
@@ -100,6 +109,7 @@ $bootstrapper = get_class(new class {
     /**
      * Stop the dev environment
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
@@ -107,23 +117,8 @@ $bootstrapper = get_class(new class {
     {
         $this->createStep('Stopping Leantime Dev Environment');
 
-        foreach (
-            [
-                fn () => $this->dockerProcess->stop(),
-                fn () => $this->executeCommand('docker compose down', ['cwd' => DEV_ROOT]),
-            ] as $count => $shutdown
-        ) {
-            try {
-                $shutdown();
-                // we want the script to continue even if failure
-            } catch (Throwable $e) {
-                if ($count === 1) {
-                    return;
-                }
-
-                continue;
-            }
-        }
+        // We do this in the makefile now
+        return;
     }
 
     /**
@@ -135,52 +130,16 @@ $bootstrapper = get_class(new class {
     protected function startDevEnvironment(): void
     {
         $this->createStep('Build & Start Leantime Dev Environment');
-        $hasLocalOverride = file_exists(DEV_ROOT . 'docker-compose.local.yaml');
-        $this->dockerProcess = $this->executeCommand(
-            array_filter(
-                [
-                    'docker',
-                    'compose',
-                    '-f',
-                    'docker-compose.yaml',
-                    '-f',
-                    'docker-compose.tests.yaml',
-                    $hasLocalOverride ? '-f' : null,
-                    $hasLocalOverride ? 'docker-compose.local.yaml' : null,
-                    'up',
-                    '-d',
-                    '--build',
-                    '--remove-orphans',
-                ]
-            ),
-            [
-                'cwd' => DEV_ROOT,
-                'background' => true,
-                'timeout' => 0,
-            ]
-        );
 
-        $this->dockerProcess->waitUntil(function ($type, $buffer) {
-            if (! isset($started)) {
-                static $started = [
-                    'dev-maildev-1' => false,
-                    'dev-db-1' => false,
-                    'dev-s3ninja-1' => false,
-                    'dev-phpmyadmin-1' => false,
-                    'dev-leantime-dev-1' => false,
-                ];
-            }
+        /** @var DbCore */
+        $this->db = app()->make(DbCore::class, [
+            'user' => getenv('LEAN_DB_USER'),
+            'password' => getenv('LEAN_DB_PASSWORD'),
+            'host' => getenv('LEAN_DB_HOST'),
+            'port' => 3307,
+        ]);
 
-            foreach ($started as $container => $status) {
-                if (! $status && strpos($buffer, "Container \"$container\" started") !== false) {
-                    $started[$container] = true;
-                }
-            }
-
-            $this->commandOutputHandler($type, $buffer);
-
-            return ! in_array(false, $started, true);
-        });
+        return;
     }
 
     /**
@@ -192,63 +151,39 @@ $bootstrapper = get_class(new class {
     protected function createDatabase(): void
     {
         $this->createStep('Creating Test Database');
-        $this->executeCommand(
-            [
-                'docker',
-                'compose',
-                'exec',
-                '-T',
-                'db',
-                'mysql',
-                '-hlocalhost',
-                '-uroot',
-                '-pleantime',
-                '-e',
-                'DROP DATABASE IF EXISTS leantime_test;',
-            ],
-            ['cwd' => DEV_ROOT]
-        );
-        $this->executeCommand(
-            [
-                'docker',
-                'compose',
-                'exec',
-                '-T',
-                'db',
-                'mysql',
-                '-hlocalhost',
-                '-uroot',
-                '-pleantime',
-                '-e',
-                'CREATE DATABASE IF NOT EXISTS leantime_test; GRANT ALL PRIVILEGES ON leantime_test.* TO \'leantime\'@\'%\'; FLUSH PRIVILEGES;',
-            ],
-            ['cwd' => DEV_ROOT]
-        );
+
+        $envDbName = getenv('LEAN_DB_DATABASE');
+        $envDbUser = getenv('LEAN_DB_USER');
+
+        $sqlParams = [
+            'dbName' => $envDbName . '_test',
+            'dbUser' => $envDbUser . '\'@\'%',
+        ];
+
+        $sqlDropDb = 'DROP DATABASE IF EXISTS :dbName;';
+        $sqlCreateDb = 'CREATE DATABASE IF NOT EXISTS :dbName;';
+        $sqlGrantPrivileges = 'GRANT ALL PRIVILEGES ON :dbName.* TO :dbUser;';
+        $sqlFlushPrivileges = 'FLUSH PRIVILEGES;';
+        $sql = $sqlDropDb . $sqlCreateDb . $sqlGrantPrivileges . $sqlFlushPrivileges;
+
+        $sth = $this->db->prepare($sql, $sqlParams);
+        $sth->execute();
     }
 
+    /**
+     * Set folder permissions
+     * @todo Currently moving this to the makefile
+     *
+     * @access protected
+     * @return void
+     */
     protected function setFolderPermissions(): void
     {
         $this->createStep('Setting folder permissions on cache folder');
 
-        //Set file permissions
-        $this->executeCommand(
-            array_filter(
-                [
-                    'docker',
-                    'compose',
-                    'exec',
-                    '-T',
-                    'leantime-dev',
-                    'chown',
-                    '-R',
-                    'www-data:www-data',
-                    '/var/www/html/cache/',
-                ]
-            ),
-            [
-                'cwd' => DEV_ROOT,
-            ]
-        );
+        // Set file permissions
+        chown('/var/www/html/cache', 'www-data');
+        chgrp('/var/www/html/cache', 'www-data');
     }
 
     /**

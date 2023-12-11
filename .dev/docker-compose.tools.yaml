@@ -8,12 +8,14 @@ services:
   composer:
     <<: *tool-service
     image: composer
+    container_name: leantime-composer
     environment:
       COMPOSER_IGNORE_PLATFORM_REQS: 1
 
   php:
-    build: .
     <<: *tool-service
+    build: .
+    container_name: leantime-php
     volumes:
       - "${PWD}:/app"
       - "./xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
@@ -21,10 +23,12 @@ services:
 
   npm:
     <<: *tool-service
+    container_name: leantime-npm
     image: node:lts-alpine
     entrypoint: ["npm"]
 
   npx:
     <<: *tool-service
+    container_name: leantime-npx
     image: node:lts-alpine
     entrypoint: ["npx"]

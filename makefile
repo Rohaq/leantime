@@ -1,15 +1,28 @@
-VERSION := $(shell grep "appVersion" ./app/Core/AppSettings.php |awk -F' = ' '{print substr($$2,2,length($$2)-3)}')
-TARGET_DIR:= ./target/leantime
-DOCS_DIR:= ./builddocs
-DOCS_REPO:= git@github.com:Leantime/docs.git
-RUNNING_DOCKER_CONTAINERS:= $(shell docker ps -a -q)
-RUNNING_DOCKER_VOLUMES:= $(shell docker volume ls -q)
+export COMPOSE_PROJECT_NAME=leantime-make
 
-run-tool := docker-compose -f .dev/docker-compose.tools.yaml run --rm
+VERSION := $(shell grep "appVersion" ./app/Core/AppSettings.php |awk -F' = ' '{print substr($$2,2,length($$2)-3)}')
+TARGET_DIR := ./target/leantime
+DOCS_DIR := ./builddocs
+DOCS_REPO := git@github.com:Leantime/docs.git
+RUNNING_DOCKER_CONTAINERS := $(shell docker compose ps -a -q)
+RUNNING_DOCKER_VOLUMES := $(shell docker volume ls -q)
+UID := $(shell id -u)
+GID := $(shell id -g)
+
+COMPOSE_FILES := -f .dev/docker-compose.yaml
+
+ifneq ("$(wildcard .dev/docker-compose.local.yaml)","")
+	COMPOSE_FILES += " -f .dev/docker-compose.local.yaml"
+endif
+
+COMPOSE_FILES_TEST := $(COMPOSE_FILES) -f .dev/docker-compose.tests.yaml
+
+run-tool := docker compose -f .dev/docker-compose.tools.yaml run --rm --user "$(UID):$(GID)"
 run-composer := $(run-tool) composer
 run-npx := $(run-tool) npx
 run-npm := $(run-tool) npm
 run-php := $(run-tool) php
+run-sql-test := docker compose $(COMPOSE_FILES_TEST) exec -T db mysql -hlocalhost -P3307 -uroot -pleantime -e
 
 install-deps-dev:
 	$(run-npm) install --only=dev
@@ -102,29 +115,29 @@ gendocs: # Requires github CLI (brew install gh)
 	# Delete the temporary docs directory
 	rm -rf $(DOCS_DIR)
 
-
 clean:
 	rm -rf $(TARGET_DIR)
 
-run-dev: build-dev
-	cd .dev && docker-compose up --build --remove-orphans
+docker-clean:
+	docker compose $(COMPOSE_FILES) down -v
 
-acceptance-test: build-dev
+docker-clean-test:
+	docker compose $(COMPOSE_FILES_TEST) down -v
+
+run-dev: build-dev docker-clean
+	docker compose $(COMPOSE_FILES) up -d --build --remove-orphans
+
+run-test: build-dev docker-clean-test
+	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
+
+acceptance-test: run-test create-test-database
 	$(run-php) ./vendor/bin/codecept run Acceptance --steps
+	docker compose $(COMPOSE_FILES_TEST) down -v
 
-acceptance-test-ci: build-dev
+acceptance-test-ci: run-test create-test-database
 	$(run-php) vendor/bin/codecept build
-ifeq ($(strip $(RUNNING_DOCKER_CONTAINERS)),)
-	@echo "No running docker containers found"
-else
-	docker rm -f $(RUNNING_DOCKER_CONTAINERS)
-endif
-ifeq ($(strip $(RUNNING_DOCKER_VOLUMES)),)
-	@echo "No running docker volumes found"
-else
-	docker volume rm $(RUNNING_DOCKER_VOLUMES)
-endif
 	$(run-php) vendor/bin/codecept run Acceptance --steps
+	docker compose $(COMPOSE_FILES_TEST) down -v
 
 codesniffer:
 	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcs app
@@ -132,8 +145,15 @@ codesniffer:
 codesniffer-fix:
 	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcbf app
 
+create-test-database: run-test
+	$(run-sql-test) "DROP DATABASE IF EXISTS leantime_test;"
+	$(run-sql-test) "CREATE DATABASE IF NOT EXISTS leantime_test; GRANT ALL PRIVILEGES ON leantime_test.* TO 'leantime'@'%'; FLUSH PRIVILEGES;"
+
+set-folder-permissions:
+	docker compose exec -T leantime-dev chown -R www-data:www-data /var/www/html/cache/
+
 get-version:
 	@echo $(VERSION)
 
-.PHONY: install-deps build package clean run-dev
+.PHONY: install-deps build package clean run-dev run-test
 
