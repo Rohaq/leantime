@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use PDO;
-use Leantime\Core\Db as DbCore;
+use Leantime\Core\Db;
 
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
@@ -30,20 +30,15 @@ $bootstrapper = get_class(new class {
     protected static $instance;
 
     /**
-     * @var DbCore
+     * @var Db
      * Instance of the database core class.
      */
-    private DbCore $db;
+    private Db $db;
 
     /**
      * @var Process
      */
     protected Process $seleniumProcess;
-
-    /**
-     * @var Process
-     */
-    protected Process $dockerProcess;
 
     /**
      * Get the singleton instance of this class
@@ -70,7 +65,6 @@ $bootstrapper = get_class(new class {
     {
         $this->startDevEnvironment();
         $this->setFolderPermissions();
-        $this->createDatabase();
         $this->startSelenium();
         $this->createStep('Starting Codeception Testing Framework');
     }
@@ -122,7 +116,7 @@ $bootstrapper = get_class(new class {
     }
 
     /**
-     * Start the dev environment
+     * Start the dev environment and set up DB connection
      *
      * @access protected
      * @return void
@@ -131,12 +125,13 @@ $bootstrapper = get_class(new class {
     {
         $this->createStep('Build & Start Leantime Dev Environment');
 
-        /** @var DbCore */
-        $this->db = app()->make(DbCore::class, [
+        /** @todo Apparently we're not getting these env vars in? Figure out why */
+        // Set up DB connection
+        $this->db = app()->make(Db::class, [
             'user' => getenv('LEAN_DB_USER'),
             'password' => getenv('LEAN_DB_PASSWORD'),
             'host' => getenv('LEAN_DB_HOST'),
-            'port' => 3307,
+            'port' => getenv('LEAN_DB_PORT'),
         ]);
 
         return;
@@ -145,29 +140,14 @@ $bootstrapper = get_class(new class {
     /**
      * Create the test database
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
     protected function createDatabase(): void
     {
-        $this->createStep('Creating Test Database');
-
-        $envDbName = getenv('LEAN_DB_DATABASE');
-        $envDbUser = getenv('LEAN_DB_USER');
-
-        $sqlParams = [
-            'dbName' => $envDbName . '_test',
-            'dbUser' => $envDbUser . '\'@\'%',
-        ];
-
-        $sqlDropDb = 'DROP DATABASE IF EXISTS :dbName;';
-        $sqlCreateDb = 'CREATE DATABASE IF NOT EXISTS :dbName;';
-        $sqlGrantPrivileges = 'GRANT ALL PRIVILEGES ON :dbName.* TO :dbUser;';
-        $sqlFlushPrivileges = 'FLUSH PRIVILEGES;';
-        $sql = $sqlDropDb . $sqlCreateDb . $sqlGrantPrivileges . $sqlFlushPrivileges;
-
-        $sth = $this->db->prepare($sql, $sqlParams);
-        $sth->execute();
+        // We do this in the makefile now
+        return;
     }
 
     /**
