@@ -129,14 +129,16 @@ docker-clean:
 docker-clean-test:
 	docker compose $(COMPOSE_FILES_TEST) down -v
 
-run-dev: build-dev docker-clean set-folder-permissions
+run-dev: build-dev docker-clean
 	docker compose $(COMPOSE_FILES) up -d --build --remove-orphans
+	make set-folder-permissions
 
 stop-dev:
 	make docker-clean
 
-run-test: build-dev docker-clean-test set-folder-permissions
+run-test: build-dev docker-clean-test
 	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
+	make set-folder-permissions
 
 stop-test:
 	docker compose $(COMPOSE_FILES_TEST) down -v
@@ -167,4 +169,3 @@ get-version:
 	@echo $(VERSION)
 
 .PHONY: install-deps build package clean run-dev run-test
-
