@@ -127,6 +127,9 @@ docker-clean-test:
 run-dev: build-dev docker-clean set-folder-permissions
 	docker compose $(COMPOSE_FILES) up -d --build --remove-orphans
 
+stop-dev:
+	make docker-clean
+
 run-test: build-dev docker-clean-test set-folder-permissions
 	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
 
