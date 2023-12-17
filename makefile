@@ -133,14 +133,17 @@ stop-dev:
 run-test: build-dev docker-clean-test set-folder-permissions
 	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
 
+stop-test:
+	docker compose $(COMPOSE_FILES_TEST) down -v
+
 acceptance-test: run-test create-test-database
 	$(run-php) ./vendor/bin/codecept run Acceptance --steps
-	docker compose $(COMPOSE_FILES_TEST) down -v
+	make stop-test
 
 acceptance-test-ci: run-test create-test-database
 	$(run-php) vendor/bin/codecept build
 	$(run-php) vendor/bin/codecept run Acceptance --steps
-	docker compose $(COMPOSE_FILES_TEST) down -v
+	make stop-test
 
 codesniffer:
 	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcs app
