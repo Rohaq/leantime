@@ -152,8 +152,8 @@ $bootstrapper = get_class(new class {
 
     /**
      * Set folder permissions
-     * @todo Currently moving this to the makefile
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
@@ -161,9 +161,8 @@ $bootstrapper = get_class(new class {
     {
         $this->createStep('Setting folder permissions on cache folder');
 
-        // Set file permissions
-        chown('/var/www/html/cache', 'www-data');
-        chgrp('/var/www/html/cache', 'www-data');
+        // We do this in the makefile now
+        return;
     }
 
     /**
