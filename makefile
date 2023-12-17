@@ -124,10 +124,10 @@ docker-clean:
 docker-clean-test:
 	docker compose $(COMPOSE_FILES_TEST) down -v
 
-run-dev: build-dev docker-clean
+run-dev: build-dev docker-clean set-folder-permissions
 	docker compose $(COMPOSE_FILES) up -d --build --remove-orphans
 
-run-test: build-dev docker-clean-test
+run-test: build-dev docker-clean-test set-folder-permissions
 	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
 
 acceptance-test: run-test create-test-database
