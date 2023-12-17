@@ -9,19 +9,24 @@ RUNNING_DOCKER_VOLUMES := $(shell docker volume ls -q)
 UID := $(shell id -u)
 GID := $(shell id -g)
 
+# Base compose file
 COMPOSE_FILES := -f .dev/docker-compose.yaml
 
+# If local docker-compose file exists, add it to the command
 ifneq ("$(wildcard .dev/docker-compose.local.yaml)","")
 	COMPOSE_FILES += " -f .dev/docker-compose.local.yaml"
 endif
 
+# Compose files for tests
 COMPOSE_FILES_TEST := $(COMPOSE_FILES) -f .dev/docker-compose.tests.yaml
 
+# Command aliases for running tools in docker
 run-tool := docker compose -f .dev/docker-compose.tools.yaml run --rm --user "$(UID):$(GID)"
 run-composer := $(run-tool) composer
 run-npx := $(run-tool) npx
 run-npm := $(run-tool) npm
 run-php := $(run-tool) php
+# Alias for running SQL against the test database
 run-sql-test := docker compose $(COMPOSE_FILES_TEST) exec -T db mysql -hlocalhost -P3307 -uroot -pleantime -e
 
 install-deps-dev:
