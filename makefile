@@ -143,7 +143,7 @@ run-test: build-dev docker-clean-test
 	make set-folder-permissions
 
 stop-test:
-	docker compose $(COMPOSE_FILES_TEST) down -v
+	make docker-clean-test
 
 acceptance-test: run-test create-test-database
 	$(run-php) ./vendor/bin/codecept run Acceptance --steps
