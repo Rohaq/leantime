@@ -2,12 +2,6 @@
 
 declare(strict_types=1);
 
-use PDO;
-use Leantime\Core\Db;
-
-use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
-
 // Don't run script unless using the 'run' command
 if (! isset($_SERVER['argv'][1]) || $_SERVER['argv'][1] !== 'run') {
     return;
@@ -30,17 +24,6 @@ $bootstrapper = get_class(new class {
     protected static $instance;
 
     /**
-     * @var Db
-     * Instance of the database core class.
-     */
-    private Db $db;
-
-    /**
-     * @var Process
-     */
-    protected Process $seleniumProcess;
-
-    /**
      * Get the singleton instance of this class
      *
      * @access public
@@ -58,46 +41,37 @@ $bootstrapper = get_class(new class {
     /**
      * Start the testing environment
      *
+     * @deprecated We do this in the makefile now
      * @access public
      * @return void
      */
     public function start(): void
     {
-        $this->startDevEnvironment();
-        $this->setFolderPermissions();
-        $this->startSelenium();
-        $this->createStep('Starting Codeception Testing Framework');
+        return;
     }
 
     /**
      * Destroy the testing environment
      *
+     * @deprecated We do this in the makefile now
      * @access public
      * @return void
      */
     public function destroy(): void
     {
-        $this->createStep('Stopping Codeception Testing Framework');
-        $this->stopSelenium();
-        $this->stopDevEnvironment();
+        return;
     }
 
     /**
      * Stop Selenium
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
     protected function stopSelenium(): void
     {
-        $this->createStep('Stopping Selenium');
-
-        try {
-            $this->seleniumProcess->stop();
-            // we want the script to continue even if failure
-        } catch (Throwable $e) {
-            return;
-        }
+        return;
     }
 
     /**
@@ -109,31 +83,18 @@ $bootstrapper = get_class(new class {
      */
     protected function stopDevEnvironment(): void
     {
-        $this->createStep('Stopping Leantime Dev Environment');
-
-        // We do this in the makefile now
         return;
     }
 
     /**
      * Start the dev environment and set up DB connection
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
     protected function startDevEnvironment(): void
     {
-        $this->createStep('Build & Start Leantime Dev Environment');
-
-        /** @todo Apparently we're not getting these env vars in? Figure out why */
-        // Set up DB connection
-        $this->db = app()->make(Db::class, [
-            'user' => getenv('LEAN_DB_USER'),
-            'password' => getenv('LEAN_DB_PASSWORD'),
-            'host' => getenv('LEAN_DB_HOST'),
-            'port' => getenv('LEAN_DB_PORT'),
-        ]);
-
         return;
     }
 
@@ -146,7 +107,6 @@ $bootstrapper = get_class(new class {
      */
     protected function createDatabase(): void
     {
-        // We do this in the makefile now
         return;
     }
 
@@ -159,37 +119,19 @@ $bootstrapper = get_class(new class {
      */
     protected function setFolderPermissions(): void
     {
-        $this->createStep('Setting folder permissions on cache folder');
-
-        // We do this in the makefile now
         return;
     }
 
     /**
      * Start Selenium
      *
+     * @deprecated We do this in the makefile now
      * @access protected
      * @return void
      */
     protected function startSelenium(): void
     {
-        $this->createStep('Starting Selenium');
-        $this->executeCommand(
-            [
-                'npx',
-                'selenium-standalone',
-                'install',
-            ]
-        );
-        $this->seleniumProcess = $this->executeCommand([
-            'npx',
-            'selenium-standalone',
-            'start',
-        ], ['background' => true]);
-        $this->seleniumProcess->waitUntil(function ($type, $buffer) {
-            $this->commandOutputHandler($type, $buffer);
-            return strpos($buffer, 'Selenium started') !== false;
-        });
+        return;
     }
 
     /**
@@ -205,79 +147,6 @@ $bootstrapper = get_class(new class {
         $line = str_repeat('=', $chars);
 
         echo "\n$line\n$message\n$line\n";
-    }
-
-    /**
-     * Execute a command
-     *
-     * @access protected
-     * @param  string|array $command
-     * @param  array        $args
-     * @param  boolean      $required
-     * @return Process|string
-     */
-    protected function executeCommand(
-        string|array $command,
-        array $args = [],
-        bool $required = true,
-    ): Process|string {
-        $process = is_array($command)
-            ? new Process($command)
-            : Process::fromShellCommandline($command);
-
-        if (isset($args['cwd'])) {
-            $process->setWorkingDirectory($args['cwd']);
-        }
-
-        if (isset($args['timeout'])) {
-            $process->setTimeout($args['timeout']);
-        }
-
-        if (isset($args['options'])) {
-            $process->setOptions($args['options']);
-        }
-
-        if (isset($args['background']) && $args['background']) {
-            $process->start();
-        } else {
-            $process->run(fn ($type, $buffer) => $this->commandOutputHandler($type, $buffer));
-        }
-
-        if (
-            $required
-            && (! isset($args['background']) || ! $args['background'])
-            && ! $process->isSuccessful()
-        ) {
-            throw new ProcessFailedException($process);
-        }
-
-        if (
-            isset($args['getOutput'])
-            && $args['getOutput']
-        ) {
-            if (isset($args['background']) && $args['background']) {
-                throw new RuntimeException('Cannot get output from background process');
-            }
-
-            return $process->getOutput();
-        }
-
-        return $process;
-    }
-
-    /**
-     * Handle command output
-     *
-     * @access private
-     * @param  string $type
-     * @param  string $buffer
-     * @return void
-     */
-    private function commandOutputHandler(string $type, string $buffer): void
-    {
-        echo Process::ERR === $type
-            ? "\nSTDERR: $buffer"
-            : "\nSTDOUT: $buffer";
     }
 });
 

@@ -33,3 +33,18 @@ services:
     container_name: leantime-npx
     image: node:lts-alpine
     entrypoint: ["npx"]
+
+  selenium:
+    <<: *tool-service
+    container_name: leantime-selenium
+    image: selenium/standalone-firefox:latest
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+
+  codeception:
+    <<: *tool-service
+    container_name: leantime-codeception
+    depends_on:
+      - selenium
+    image: codeception/codeception:latest

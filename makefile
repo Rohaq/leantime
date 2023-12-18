@@ -26,6 +26,8 @@ run-composer := $(run-tool) composer
 run-npx := $(run-tool) npx
 run-npm := $(run-tool) npm
 run-php := $(run-tool) php
+run-codeception := $(run-tool) codeception
+
 # Alias for running SQL against the test database
 run-sql-test := docker compose $(COMPOSE_FILES_TEST) exec -T db mysql -hlocalhost -P3307 -uroot -pleantime -e
 
@@ -148,8 +150,8 @@ acceptance-test: run-test create-test-database
 	make stop-test
 
 acceptance-test-ci: run-test create-test-database
-	$(run-php) vendor/bin/codecept build
-	$(run-php) vendor/bin/codecept run Acceptance --steps
+	$(run-codeception) build
+	$(run-codeception) run Acceptance --steps
 	make stop-test
 
 codesniffer:
