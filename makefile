@@ -1,23 +1,49 @@
+export COMPOSE_PROJECT_NAME=leantime-make
+
 VERSION := $(shell grep "appVersion" ./app/Core/AppSettings.php |awk -F' = ' '{print substr($$2,2,length($$2)-3)}')
-TARGET_DIR:= ./target/leantime
-DOCS_DIR:= ./builddocs
-DOCS_REPO:= git@github.com:Leantime/docs.git
-RUNNING_DOCKER_CONTAINERS:= $(shell docker ps -a -q)
-RUNNING_DOCKER_VOLUMES:= $(shell docker volume ls -q)
+TARGET_DIR := ./target/leantime
+DOCS_DIR := ./builddocs
+DOCS_REPO := git@github.com:Leantime/docs.git
+RUNNING_DOCKER_CONTAINERS := $(shell docker compose ps -a -q)
+RUNNING_DOCKER_VOLUMES := $(shell docker volume ls -q)
+UID := $(shell id -u)
+GID := $(shell id -g)
+
+# Base compose file
+COMPOSE_FILES := -f .dev/docker-compose.yaml
+
+# If local docker-compose file exists, add it to the command
+ifneq ("$(wildcard .dev/docker-compose.local.yaml)","")
+	COMPOSE_FILES += " -f .dev/docker-compose.local.yaml"
+endif
+
+# Compose files for tests
+COMPOSE_FILES_TEST := $(COMPOSE_FILES) -f .dev/docker-compose.tests.yaml
+
+# Command aliases for running tools in docker
+run-tool := docker compose -f .dev/docker-compose.tools.yaml run --rm --user "$(UID):$(GID)"
+run-composer := $(run-tool) composer
+run-npx := $(run-tool) npx
+run-npm := $(run-tool) npm
+run-php := $(run-tool) php
+run-codeception := $(run-tool) codeception
+
+# Alias for running SQL against the test database
+run-sql-test := docker compose $(COMPOSE_FILES_TEST) exec -T db mysql -hlocalhost -P3307 -uroot -pleantime -e
 
 install-deps-dev:
-	npm install --only=dev
-	composer install --optimize-autoloader
+	$(run-npm) install --only=dev
+	$(run-composer) install --optimize-autoloader
 
 install-deps:
-	npm install
-	composer install --no-dev --optimize-autoloader
+	$(run-npm) install
+	$(run-composer) install --no-dev --optimize-autoloader
 
 build: install-deps
-	npx mix --production
+	$(run-npx) mix --production
 
 build-dev: install-deps-dev
-	npx mix --production
+	$(run-npx) mix --production
 
 package: clean build
 	mkdir -p $(TARGET_DIR)
@@ -84,7 +110,7 @@ gendocs: # Requires github CLI (brew install gh)
 
 	# Generate the docs
 	phpDocumentor
-	php vendor/bin/leantime-documentor parse app --format=markdown --template=templates/markdown.php --output=builddocs/technical/hooks.md --memory-limit=-1
+	$(run-php) vendor/bin/leantime-documentor parse app --format=markdown --template=templates/markdown.php --output=builddocs/technical/hooks.md --memory-limit=-1
 
 	# create pull request
 	cd $(DOCS_DIR) && git switch -c "release/$(VERSION)"
@@ -96,38 +122,52 @@ gendocs: # Requires github CLI (brew install gh)
 	# Delete the temporary docs directory
 	rm -rf $(DOCS_DIR)
 
-
 clean:
 	rm -rf $(TARGET_DIR)
 
-run-dev: build-dev
-	cd .dev && docker-compose up --build --remove-orphans
+docker-clean:
+	docker compose $(COMPOSE_FILES) down -v
 
-acceptance-test: build-dev
-	php vendor/bin/codecept run Acceptance --steps
+docker-clean-test:
+	docker compose $(COMPOSE_FILES_TEST) down -v
 
-acceptance-test-ci: build-dev
-	php vendor/bin/codecept build
-ifeq ($(strip $(RUNNING_DOCKER_CONTAINERS)),)
-	@echo "No running docker containers found"
-else
-	docker rm -f $(RUNNING_DOCKER_CONTAINERS)
-endif
-ifeq ($(strip $(RUNNING_DOCKER_VOLUMES)),)
-	@echo "No running docker volumes found"
-else
-	docker volume rm $(RUNNING_DOCKER_VOLUMES)
-endif
-	php vendor/bin/codecept run Acceptance --steps
+run-dev: build-dev docker-clean
+	docker compose $(COMPOSE_FILES) up -d --build --remove-orphans
+	make set-folder-permissions
+
+stop-dev:
+	make docker-clean
+
+run-test: build-dev docker-clean-test
+	docker compose $(COMPOSE_FILES_TEST) up -d --build --remove-orphans
+	make set-folder-permissions
+
+stop-test:
+	make docker-clean-test
+
+acceptance-test: run-test create-test-database
+	$(run-php) ./vendor/bin/codecept run Acceptance --steps
+	make stop-test
+
+acceptance-test-ci: run-test create-test-database
+	$(run-codeception) build
+	$(run-codeception) run Acceptance --steps
+	make stop-test
 
 codesniffer:
-	./vendor/squizlabs/php_codesniffer/bin/phpcs app
+	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcs app
 
 codesniffer-fix:
-	./vendor/squizlabs/php_codesniffer/bin/phpcbf app
+	$(run-php) ./vendor/squizlabs/php_codesniffer/bin/phpcbf app
+
+create-test-database: run-test
+	$(run-sql-test) "DROP DATABASE IF EXISTS leantime_test;"
+	$(run-sql-test) "CREATE DATABASE IF NOT EXISTS leantime_test; GRANT ALL PRIVILEGES ON leantime_test.* TO 'leantime'@'%'; FLUSH PRIVILEGES;"
+
+set-folder-permissions:
+	docker compose exec -T leantime-dev chown -R www-data:www-data /var/www/html/cache/
 
 get-version:
-	@echo $(VERSION) 
+	@echo $(VERSION)
 
-.PHONY: install-deps build package clean run-dev
-
+.PHONY: install-deps build package clean run-dev run-test

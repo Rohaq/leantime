@@ -1,0 +1,50 @@
+x-tool-service: &tool-service
+  profiles: ["tools"]
+  working_dir: "/app"
+  volumes:
+    - "${PWD}:/app"
+
+services:
+  composer:
+    <<: *tool-service
+    image: composer
+    container_name: leantime-composer
+    environment:
+      COMPOSER_IGNORE_PLATFORM_REQS: 1
+
+  php:
+    profiles: ["tools"]
+    build: .
+    container_name: leantime-php
+    working_dir: "/var/www/html"
+    volumes:
+      - "${PWD}:/var/www/html"
+      - "./xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
+      - "./error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini"
+
+  npm:
+    <<: *tool-service
+    container_name: leantime-npm
+    image: node:lts-alpine
+    entrypoint: ["npm"]
+
+  npx:
+    <<: *tool-service
+    container_name: leantime-npx
+    image: node:lts-alpine
+    entrypoint: ["npx"]
+
+  selenium:
+    <<: *tool-service
+    container_name: leantime-selenium
+    image: selenium/standalone-firefox:latest
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+
+  codeception:
+    <<: *tool-service
+    container_name: leantime-codeception
+    depends_on:
+      - selenium
+    image: codeception/codeception:latest

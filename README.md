@@ -120,7 +120,7 @@ There are two ways to install a development setup of LeanTime. The first (but mo
 
 #### Development Installation via Docker ####
 
-For development, we use a dockerized development environment. You will need to have ``docker``, ``docker compose``, ``make``, ``composer``, ``git`` and ``npm`` installed.
+For development, we use a dockerized development environment. You will need to have ``docker``, ``docker compose``, and ``make`` installed.
 
 * Notes for Windows Environments:
     - Run all commands within the git bash terminal in order to utilize unix specific commands

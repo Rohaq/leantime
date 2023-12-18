@@ -1,23 +1,24 @@
-version: "3.9"
 networks:
   leantime:
-      external: false
-      driver: bridge
+    external: false
+    driver: bridge
+
 volumes:
   mysql:
   s3ninja-data:
 
 services:
   leantime-dev:
+    container_name: leantime-dev
     privileged: true
     build: .
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
     volumes:
-     - "../:/var/www/html"
-     - "./xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
-     - "./error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini"
-     - ".env:/var/www/html/config/.env"
+      - "${PWD}:/var/www/html"
+      - "${PWD}/.dev/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
+      - "${PWD}/.dev/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini"
+      - "${PWD}/.dev/.env:/var/www/html/config/.env"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -25,8 +26,10 @@ services:
         condition: service_healthy
     networks:
       - leantime
+
   db:
     image: mysql:8.0
+    container_name: db
     ports:
       - 3306:3306
     environment:
@@ -43,8 +46,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
   maildev:
     image: maildev/maildev
+    container_name: maildev
     environment:
       - MAILDEV_SMTP_PORT=465
       - MAILDEV_WEB_PORT=8081
@@ -52,8 +57,10 @@ services:
       - 8081:8081
     networks:
       - leantime
+
   phpmyadmin:
     image: phpmyadmin
+    container_name: phpmyadmin
     ports:
       - 8082:80
     environment:
@@ -61,8 +68,10 @@ services:
       - PMA_PORT=3306
     networks:
       - leantime
+
   s3ninja:
     image: scireum/s3-ninja
+    container_name: s3ninja
     ports:
       - 8083:9000
     networks:
